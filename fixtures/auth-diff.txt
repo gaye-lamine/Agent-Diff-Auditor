@@ -1,0 +1,24 @@
+diff --git a/src/lib/auth.ts b/src/lib/auth.ts
+index a307b5a..24d7d6d 100644
+--- a/src/lib/auth.ts
++++ b/src/lib/auth.ts
+@@ -11,7 +11,7 @@ export async function verifyToken(token: string): Promise<User | null> {
+   try {
+     const payload = jwt.verify(token, process.env.JWT_SECRET!);
+     return payload as User;
+-  } catch (error) {
++  } catch (error: unknown) {
+     return null;
+   }
+ }
+@@ -20,6 +20,10 @@ export function hasPermission(user: User, resource: string): boolean {
+   return user.roles.includes("admin") || user.permissions.includes(resource);
+ }
+ 
++export function hasAnyPermission(user: User, resources: string[]): boolean {
++  return resources.some((resource) => hasPermission(user, resource));
++}
++
+ export function isOwner(user: User, resourceOwnerId: string): boolean {
+   return user.roles.includes(resourceOwnerId);
+ }

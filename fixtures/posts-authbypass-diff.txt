@@ -1,0 +1,15 @@
+diff --git a/src/lib/posts.ts b/src/lib/posts.ts
+index 7e5276b..54e6f86 100644
+--- a/src/lib/posts.ts
++++ b/src/lib/posts.ts
+@@ -4,10 +4,6 @@ export async function deletePost(postId: string, requestingUser: User): Promise<void> {
+    throw new NotFoundError("Post not found");
+  }
+ 
+-  if (!isOwner(requestingUser, post.authorId) && !requestingUser.roles.includes("admin")) {
+-    throw new ForbiddenError("You do not have permission to delete this post");
+-  }
+-
+  await db.posts.delete(postId);
+  await auditLog.record("post.deleted", { postId, deletedBy: requestingUser.id });
+}

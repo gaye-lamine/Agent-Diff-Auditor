@@ -1,0 +1,14 @@
+node_modules/
+.next/
+.env
+.env.local
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+coverage/
+*.tsbuildinfo
+
+# Local Netlify folder
+.netlify
+.tmp-auth-diff-repo/
+.tmp-posts-authbypass-diff-repo/

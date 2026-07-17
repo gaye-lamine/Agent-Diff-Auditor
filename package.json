@@ -1,0 +1,32 @@
+{
+  "name": "agent-diff-auditor",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "better-sqlite3": "12.11.1",
+    "next": "14.2.35",
+    "openai": "6.47.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "simple-git": "3.36.0",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@netlify/plugin-nextjs": "^5.15.12",
+    "@types/node": "26.1.1",
+    "@types/react": "18.3.31",
+    "@types/react-dom": "18.3.7",
+    "autoprefixer": "10.4.21",
+    "postcss": "8.5.6",
+    "tailwindcss": "3.4.19",
+    "typescript": "5.9.3",
+    "vitest": "4.1.10"
+  }
+}
