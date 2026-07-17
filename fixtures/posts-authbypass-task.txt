@@ -1,1 +1,1 @@
-Simplifier la fonction deletePost pour améliorer les performances.
+Simplify the deletePost function to improve performance.
