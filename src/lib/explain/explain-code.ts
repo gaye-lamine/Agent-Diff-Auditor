@@ -1,5 +1,10 @@
 import OpenAI from "openai";
-import { NVIDIA_BASE_URL, withNvidiaModelFallback } from "@/lib/llm/nvidia";
+import {
+  NVIDIA_BASE_URL,
+  NVIDIA_MAX_TOKENS,
+  NVIDIA_REQUEST_TIMEOUT_MS,
+  withNvidiaModelFallback
+} from "@/lib/llm/nvidia";
 import { getLLMProvider } from "@/lib/llm/provider";
 import type { ExplainRequest } from "./schema";
 
@@ -43,7 +48,7 @@ export class NvidiaCodeExplainer implements CodeExplainer {
         ],
         temperature: 0.2,
         top_p: 0.95,
-        max_tokens: 16_384,
+        max_tokens: NVIDIA_MAX_TOKENS,
         reasoning_effort: reasoningEffort
       })
     );
@@ -77,7 +82,7 @@ export function createNvidiaCodeExplainer(): CodeExplainer {
   const apiKey = process.env.NVIDIA_API_KEY;
   if (!apiKey) throw new Error("NVIDIA_API_KEY is not configured.");
   return new NvidiaCodeExplainer(
-    new OpenAI({ apiKey, baseURL: NVIDIA_BASE_URL, timeout: 30_000 })
+    new OpenAI({ apiKey, baseURL: NVIDIA_BASE_URL, timeout: NVIDIA_REQUEST_TIMEOUT_MS })
   );
 }
 

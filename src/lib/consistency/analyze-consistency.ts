@@ -1,6 +1,11 @@
 import OpenAI from "openai";
 import { getLLMProvider } from "@/lib/llm/provider";
-import { NVIDIA_BASE_URL, withNvidiaModelFallback } from "@/lib/llm/nvidia";
+import {
+  NVIDIA_BASE_URL,
+  NVIDIA_MAX_TOKENS,
+  NVIDIA_REQUEST_TIMEOUT_MS,
+  withNvidiaModelFallback
+} from "@/lib/llm/nvidia";
 import {
   consistencyAnalysisJsonSchema,
   consistencyAnalysisResponseSchema,
@@ -85,7 +90,7 @@ export class NvidiaConsistencyAnalyzer implements ConsistencyAnalyzer {
         ],
         temperature: 0.2,
         top_p: 0.95,
-        max_tokens: 16_384,
+        max_tokens: NVIDIA_MAX_TOKENS,
         reasoning_effort: reasoningEffort,
         response_format: {
           type: "json_schema",
@@ -131,7 +136,7 @@ export function createNvidiaConsistencyAnalyzer(): ConsistencyAnalyzer {
   if (!apiKey) throw new Error("NVIDIA_API_KEY is not configured.");
 
   return new NvidiaConsistencyAnalyzer(
-    new OpenAI({ apiKey, baseURL: NVIDIA_BASE_URL, timeout: 30_000 })
+    new OpenAI({ apiKey, baseURL: NVIDIA_BASE_URL, timeout: NVIDIA_REQUEST_TIMEOUT_MS })
   );
 }
 

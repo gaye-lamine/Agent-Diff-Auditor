@@ -87,7 +87,7 @@ const riskBadgeClasses: Record<RiskLevel, string> = {
   unknown: "border-slate-500/40 bg-slate-700/50 text-slate-300"
 };
 
-function getErrorMessage(value: unknown): string {
+function getErrorMessage(value: unknown, status?: number): string {
   if (
     typeof value === "object" &&
     value !== null &&
@@ -97,6 +97,8 @@ function getErrorMessage(value: unknown): string {
     return value.error;
   }
 
+  if (status === 504) return "The analysis timed out. Please try again.";
+  if (status) return `The request failed with HTTP ${status}. Please try again.`;
   return "The request could not be completed.";
 }
 
@@ -106,9 +108,17 @@ async function postAnalysis<T>(path: string, body: Record<string, unknown>): Pro
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body)
   });
-  const payload: unknown = await response.json();
+  const responseText = await response.text();
+  let payload: unknown = null;
 
-  if (!response.ok) throw new Error(getErrorMessage(payload));
+  try {
+    payload = responseText ? JSON.parse(responseText) : null;
+  } catch {
+    if (!response.ok) throw new Error(getErrorMessage(null, response.status));
+    throw new Error("The server returned an invalid response. Please try again.");
+  }
+
+  if (!response.ok) throw new Error(getErrorMessage(payload, response.status));
   return payload as T;
 }
 
