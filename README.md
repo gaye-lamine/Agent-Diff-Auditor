@@ -25,7 +25,7 @@ The result screen presents the global change summary, a selectable read-only dif
 - Zod for request and LLM-response validation
 - Official `openai` Node SDK
 - OpenAI Responses API with GPT-5.6 for the production path
-- NVIDIA NIM through its OpenAI-compatible Chat Completions endpoint for local development
+- A swappable OpenAI-compatible provider for local development, keeping API costs near zero while building — configurable via LLM_PROVIDER
 - Vitest for unit tests
 - `simple-git` and `better-sqlite3` are installed for Git integration and local persistence as the project grows
 
@@ -48,16 +48,14 @@ Fill in the provider key you intend to use. Never commit `.env` or a real API ke
 
 ```dotenv
 # .env
-LLM_PROVIDER=nvidia
-NVIDIA_API_KEY=your_nvidia_key_here
+LLM_PROVIDER=your_provider
 
-# Required only when LLM_PROVIDER=openai
-OPENAI_API_KEY=your_openai_key_here
+# Set the matching provider API key in .env. Keep it server-side and never commit it.
 ```
 
 ### Providers
 
-- `LLM_PROVIDER=nvidia` is intended for local development and debugging. It uses NVIDIA NIM with DeepSeek V4 Pro and falls back to DeepSeek V4 Flash.
+- `LLM_PROVIDER` selects a swappable OpenAI-compatible provider for local development, keeping API costs near zero while building.
 - `LLM_PROVIDER=openai` is the production and hackathon-submission path. It uses GPT-5.6 through the OpenAI Responses API.
 
 ## Run locally
@@ -94,7 +92,7 @@ Codex accelerated implementation by building the first unified-diff parser and i
 
 GPT-5.6 is the intended production analyzer. It receives a constrained diff and task context, returns structured responses where appropriate, and is revalidated with Zod before the application displays any result. This keeps model output useful while retaining application-level type and shape guarantees.
 
-During local development, NVIDIA NIM provides a separate compatible provider so real workflows can be exercised without replacing the production OpenAI integration. The final submission path remains `LLM_PROVIDER=openai` with GPT-5.6.
+During local development, a swappable OpenAI-compatible provider enables real workflows without replacing the production OpenAI integration. The final submission path remains `LLM_PROVIDER=openai` with GPT-5.6.
 
 ## Security and data boundaries
 

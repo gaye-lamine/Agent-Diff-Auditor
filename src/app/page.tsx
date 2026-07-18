@@ -380,7 +380,7 @@ export default function HomePage() {
             <div className="flex flex-col">
               <label className="block">
                 <span className="mb-2 block text-sm font-medium text-slate-200">
-                  Task description <span className="font-normal text-slate-500">(optional)</span>
+                  Task description <span className="font-normal text-slate-500">(optional — required for the consistency check)</span>
                 </span>
                 <textarea
                   value={taskDescription}
@@ -412,7 +412,7 @@ export default function HomePage() {
             {consistencyNeedsAttention && (
               <div className="rounded-md border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
                 {!analysis.consistency.data?.canEvaluate
-                  ? "Consistency analysis is unavailable because no task description was provided."
+                  ? "Add a task description above to check whether these changes match what was actually asked."
                   : "Potential out-of-scope changes were detected. Review the file details below."}
               </div>
             )}
@@ -604,7 +604,7 @@ export default function HomePage() {
           </section>
         )}
         <footer className="mt-10 border-t border-slate-800 pt-5 text-xs text-slate-500">
-          This public demo uses a development model (DeepSeek via NVIDIA NIM). The codebase also supports GPT-5.6 with <span className="font-mono">LLM_PROVIDER=openai</span>.
+          This public demo runs on a swappable LLM provider, currently configured for cost efficiency during development. The codebase is provider-agnostic by design and runs unmodified on GPT-5.6 with LLM_PROVIDER=openai.
         </footer>
       </div>
       {explainSelection && (

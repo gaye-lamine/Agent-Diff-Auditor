@@ -22,7 +22,12 @@ async function main() {
   console.log(`LLM_PROVIDER: ${process.env.LLM_PROVIDER}`);
 
   const provider = process.env.LLM_PROVIDER ?? "openai";
-  const requiredKey = provider === "nvidia" ? "NVIDIA_API_KEY" : "OPENAI_API_KEY";
+  const requiredKey =
+    provider === "nvidia"
+      ? "NVIDIA_API_KEY"
+      : provider === "gemini"
+        ? "GEMINI_API_KEY"
+        : "OPENAI_API_KEY";
 
   if (!process.env[requiredKey]) {
     throw new Error(`${requiredKey} is missing from .env (provider: ${provider}).`);

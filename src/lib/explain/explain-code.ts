@@ -1,6 +1,12 @@
 import OpenAI from "openai";
 import {
+  GEMINI_BASE_URL,
+  GEMINI_MODEL,
+  GEMINI_REQUEST_TIMEOUT_MS
+} from "@/lib/llm/gemini";
+import {
   NVIDIA_BASE_URL,
+  NVIDIA_MAX_RETRIES,
   NVIDIA_MAX_TOKENS,
   NVIDIA_REQUEST_TIMEOUT_MS,
   withNvidiaModelFallback
@@ -59,6 +65,27 @@ export class NvidiaCodeExplainer implements CodeExplainer {
   }
 }
 
+export class GeminiCodeExplainer implements CodeExplainer {
+  constructor(private readonly client: OpenAI) {}
+
+  async explain(input: ExplainRequest): Promise<string> {
+    const completion = await this.client.chat.completions.create({
+      model: GEMINI_MODEL,
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT_EXPLAIN },
+        { role: "user", content: buildExplainInput(input) }
+      ],
+      temperature: 0.2,
+      top_p: 0.95,
+      max_tokens: 512
+    });
+
+    const content = completion.choices[0]?.message.content;
+    if (!content) throw new Error("Gemini returned an empty code explanation.");
+    return content;
+  }
+}
+
 function buildExplainInput(input: ExplainRequest): string {
   return [
     `File path: ${input.filePath}`,
@@ -82,12 +109,22 @@ export function createNvidiaCodeExplainer(): CodeExplainer {
   const apiKey = process.env.NVIDIA_API_KEY;
   if (!apiKey) throw new Error("NVIDIA_API_KEY is not configured.");
   return new NvidiaCodeExplainer(
-    new OpenAI({ apiKey, baseURL: NVIDIA_BASE_URL, timeout: NVIDIA_REQUEST_TIMEOUT_MS })
+    new OpenAI({ apiKey, baseURL: NVIDIA_BASE_URL, timeout: NVIDIA_REQUEST_TIMEOUT_MS, maxRetries: NVIDIA_MAX_RETRIES })
+  );
+}
+
+export function createGeminiCodeExplainer(): CodeExplainer {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("GEMINI_API_KEY is not configured.");
+
+  return new GeminiCodeExplainer(
+    new OpenAI({ apiKey, baseURL: GEMINI_BASE_URL, timeout: GEMINI_REQUEST_TIMEOUT_MS })
   );
 }
 
 export function createCodeExplainer(): CodeExplainer {
-  return getLLMProvider() === "nvidia"
-    ? createNvidiaCodeExplainer()
-    : createOpenAICodeExplainer();
+  const provider = getLLMProvider();
+  if (provider === "nvidia") return createNvidiaCodeExplainer();
+  if (provider === "gemini") return createGeminiCodeExplainer();
+  return createOpenAICodeExplainer();
 }

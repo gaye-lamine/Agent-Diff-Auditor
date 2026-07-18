@@ -1,7 +1,14 @@
 import OpenAI from "openai";
 import { getLLMProvider } from "@/lib/llm/provider";
 import {
+  GEMINI_BASE_URL,
+  GEMINI_ANALYSIS_MAX_TOKENS,
+  GEMINI_ANALYSIS_MODEL,
+  GEMINI_REQUEST_TIMEOUT_MS
+} from "@/lib/llm/gemini";
+import {
   NVIDIA_BASE_URL,
+  NVIDIA_MAX_RETRIES,
   NVIDIA_MAX_TOKENS,
   NVIDIA_REQUEST_TIMEOUT_MS,
   withNvidiaModelFallback
@@ -120,6 +127,49 @@ export class NvidiaRiskAnalyzer implements RiskAnalyzer {
   }
 }
 
+export class GeminiRiskAnalyzer implements RiskAnalyzer {
+  constructor(private readonly client: OpenAI) {}
+
+  async analyze({ diff }: AnalyzeRiskRequestBody): Promise<RiskAnalysisResponse> {
+    const completion = await this.client.chat.completions.create({
+      model: GEMINI_ANALYSIS_MODEL,
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT_RISK },
+        { role: "user", content: `Unified diff:\n${diff}` }
+      ],
+      temperature: 0.2,
+      top_p: 0.95,
+      max_tokens: GEMINI_ANALYSIS_MAX_TOKENS,
+      reasoning_effort: "low",
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "risk_analysis",
+          schema: riskAnalysisJsonSchema,
+          strict: true
+        }
+      }
+    });
+
+    const content = completion.choices[0]?.message.content;
+    if (!content) throw new Error("Gemini returned an empty risk response.");
+
+    let output: unknown;
+    try {
+      output = JSON.parse(content);
+    } catch {
+      throw new Error("Gemini returned invalid JSON for risk analysis.");
+    }
+
+    const validation = riskAnalysisResponseSchema.safeParse(output);
+    if (!validation.success) {
+      throw new Error("Gemini returned a response that does not match the risk schema.");
+    }
+
+    return validation.data;
+  }
+}
+
 export function createOpenAIRiskAnalyzer(): RiskAnalyzer {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY is not configured.");
@@ -132,10 +182,22 @@ export function createNvidiaRiskAnalyzer(): RiskAnalyzer {
   if (!apiKey) throw new Error("NVIDIA_API_KEY is not configured.");
 
   return new NvidiaRiskAnalyzer(
-    new OpenAI({ apiKey, baseURL: NVIDIA_BASE_URL, timeout: NVIDIA_REQUEST_TIMEOUT_MS })
+    new OpenAI({ apiKey, baseURL: NVIDIA_BASE_URL, timeout: NVIDIA_REQUEST_TIMEOUT_MS, maxRetries: NVIDIA_MAX_RETRIES })
+  );
+}
+
+export function createGeminiRiskAnalyzer(): RiskAnalyzer {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("GEMINI_API_KEY is not configured.");
+
+  return new GeminiRiskAnalyzer(
+    new OpenAI({ apiKey, baseURL: GEMINI_BASE_URL, timeout: GEMINI_REQUEST_TIMEOUT_MS })
   );
 }
 
 export function createRiskAnalyzer(): RiskAnalyzer {
-  return getLLMProvider() === "nvidia" ? createNvidiaRiskAnalyzer() : createOpenAIRiskAnalyzer();
+  const provider = getLLMProvider();
+  if (provider === "nvidia") return createNvidiaRiskAnalyzer();
+  if (provider === "gemini") return createGeminiRiskAnalyzer();
+  return createOpenAIRiskAnalyzer();
 }

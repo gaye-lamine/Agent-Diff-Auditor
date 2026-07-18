@@ -1,6 +1,12 @@
 import OpenAI from "openai";
 import {
+  GEMINI_BASE_URL,
+  GEMINI_MODEL,
+  GEMINI_REQUEST_TIMEOUT_MS
+} from "@/lib/llm/gemini";
+import {
   NVIDIA_BASE_URL,
+  NVIDIA_MAX_RETRIES,
   NVIDIA_MAX_TOKENS,
   NVIDIA_REQUEST_TIMEOUT_MS,
   withNvidiaModelFallback
@@ -22,6 +28,10 @@ STRICT RULES:
 4. Every generated test must address an identified risk. Do not generate tests for low-risk code unless explicitly requested.
 5. Write every value in the JSON response, including assumptions and coversRisk, in English.`;
 const OPENAI_MODEL = "gpt-5.6";
+// A single focused test suggestion does not need the larger analysis budget.
+// Keeping this bounded helps NVIDIA Flash return within the local request timeout.
+const NVIDIA_TESTS_MAX_TOKENS = Math.min(NVIDIA_MAX_TOKENS, 1_024);
+const GEMINI_TESTS_MAX_TOKENS = 4_096;
 
 export interface TestsGenerator {
   generate(input: SuggestTestsRequest): Promise<SuggestedTestsResponse>;
@@ -62,15 +72,13 @@ export class NvidiaTestsGenerator implements TestsGenerator {
         ],
         temperature: 0.2,
         top_p: 0.95,
-        max_tokens: NVIDIA_MAX_TOKENS,
+        max_tokens: NVIDIA_TESTS_MAX_TOKENS,
         reasoning_effort: reasoningEffort,
         response_format: {
-          type: "json_schema",
-          json_schema: {
-            name: "suggested_tests",
-            schema: suggestedTestsJsonSchema,
-            strict: true
-          }
+          // NVIDIA Flash supports JSON output, but its strict schema mode can
+          // stall for generated code blocks. Zod still validates the result
+          // before it reaches the UI.
+          type: "json_object"
         }
       })
     );
@@ -78,6 +86,31 @@ export class NvidiaTestsGenerator implements TestsGenerator {
     const content = completion.choices[0]?.message.content;
     if (!content) throw new Error("NVIDIA returned an empty test suggestion response.");
     return parseTestsResponse(content, "NVIDIA");
+  }
+}
+
+export class GeminiTestsGenerator implements TestsGenerator {
+  constructor(private readonly client: OpenAI) {}
+
+  async generate(input: SuggestTestsRequest): Promise<SuggestedTestsResponse> {
+    const completion = await this.client.chat.completions.create({
+      model: GEMINI_MODEL,
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT_TESTS },
+        { role: "user", content: buildTestsInput(input) }
+      ],
+      temperature: 0.2,
+      top_p: 0.95,
+      max_tokens: GEMINI_TESTS_MAX_TOKENS,
+      reasoning_effort: "low",
+      response_format: {
+        type: "json_object"
+      }
+    });
+
+    const content = completion.choices[0]?.message.content;
+    if (!content) throw new Error("Gemini returned an empty test suggestion response.");
+    return parseTestsResponse(content, "Gemini");
   }
 }
 
@@ -90,14 +123,18 @@ function buildTestsInput(input: SuggestTestsRequest): string {
     `Test framework: ${input.testFramework}`,
     "",
     "Unified diff:",
-    input.diff
+    input.diff,
+    "",
+    "Return only a JSON object with this exact shape:",
+    '{"tests":[{"filePath":"string","testCode":"string","assumptions":["string"],"coversRisk":"string"}]}',
+    "Generate exactly one focused test. Keep testCode to 25 lines or fewer and do not include commentary outside the JSON."
   ].join("\n");
 }
 
 function parseTestsResponse(responseText: string, providerName: string): SuggestedTestsResponse {
   let output: unknown;
   try {
-    output = JSON.parse(responseText);
+    output = JSON.parse(stripJsonCodeFence(responseText));
   } catch {
     throw new Error(`${providerName} returned invalid JSON for test suggestions.`);
   }
@@ -110,6 +147,13 @@ function parseTestsResponse(responseText: string, providerName: string): Suggest
   return validation.data;
 }
 
+function stripJsonCodeFence(responseText: string): string {
+  const trimmed = responseText.trim();
+  if (!trimmed.startsWith("```")) return trimmed;
+
+  return trimmed.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+}
+
 export function createOpenAITestsGenerator(): TestsGenerator {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY is not configured.");
@@ -120,12 +164,22 @@ export function createNvidiaTestsGenerator(): TestsGenerator {
   const apiKey = process.env.NVIDIA_API_KEY;
   if (!apiKey) throw new Error("NVIDIA_API_KEY is not configured.");
   return new NvidiaTestsGenerator(
-    new OpenAI({ apiKey, baseURL: NVIDIA_BASE_URL, timeout: NVIDIA_REQUEST_TIMEOUT_MS })
+    new OpenAI({ apiKey, baseURL: NVIDIA_BASE_URL, timeout: NVIDIA_REQUEST_TIMEOUT_MS, maxRetries: NVIDIA_MAX_RETRIES })
+  );
+}
+
+export function createGeminiTestsGenerator(): TestsGenerator {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("GEMINI_API_KEY is not configured.");
+
+  return new GeminiTestsGenerator(
+    new OpenAI({ apiKey, baseURL: GEMINI_BASE_URL, timeout: GEMINI_REQUEST_TIMEOUT_MS })
   );
 }
 
 export function createTestsGenerator(): TestsGenerator {
-  return getLLMProvider() === "nvidia"
-    ? createNvidiaTestsGenerator()
-    : createOpenAITestsGenerator();
+  const provider = getLLMProvider();
+  if (provider === "nvidia") return createNvidiaTestsGenerator();
+  if (provider === "gemini") return createGeminiTestsGenerator();
+  return createOpenAITestsGenerator();
 }

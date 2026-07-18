@@ -18,6 +18,12 @@ function isLlmTimeout(error: unknown): boolean {
   );
 }
 
+function isLlmRateLimited(error: unknown): boolean {
+  if (!isRecord(error)) return false;
+
+  return error.status === 429 || error.name === "RateLimitError";
+}
+
 export function serverErrorResponse(error: unknown, operation: string): NextResponse {
   console.error(`${operation} failed`, error);
 
@@ -25,6 +31,13 @@ export function serverErrorResponse(error: unknown, operation: string): NextResp
     return NextResponse.json(
       { error: "The language model took too long to respond. Please try again." },
       { status: 504 }
+    );
+  }
+
+  if (isLlmRateLimited(error)) {
+    return NextResponse.json(
+      { error: "The language model rate limit was reached. Please wait a moment and try again." },
+      { status: 429 }
     );
   }
 

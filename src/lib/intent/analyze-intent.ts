@@ -1,7 +1,14 @@
 import OpenAI from "openai";
 import { getLLMProvider } from "@/lib/llm/provider";
 import {
+  GEMINI_BASE_URL,
+  GEMINI_ANALYSIS_MAX_TOKENS,
+  GEMINI_ANALYSIS_MODEL,
+  GEMINI_REQUEST_TIMEOUT_MS
+} from "@/lib/llm/gemini";
+import {
   NVIDIA_BASE_URL,
+  NVIDIA_MAX_RETRIES,
   NVIDIA_MAX_TOKENS,
   NVIDIA_REQUEST_TIMEOUT_MS,
   withNvidiaModelFallback
@@ -99,6 +106,43 @@ export class NvidiaIntentAnalyzer implements IntentAnalyzer {
   }
 }
 
+export class GeminiIntentAnalyzer implements IntentAnalyzer {
+  constructor(private readonly client: OpenAI) {}
+
+  async analyze({
+    diff,
+    taskDescription
+  }: AnalyzeIntentRequestBody): Promise<IntentAnalysisResponse> {
+    const completion = await this.client.chat.completions.create({
+      model: GEMINI_ANALYSIS_MODEL,
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT_INTENT },
+        {
+          role: "user",
+          content: `Task description:\n${taskDescription}\n\nUnified diff:\n${diff}`
+        }
+      ],
+      temperature: 0.2,
+      top_p: 0.95,
+      max_tokens: GEMINI_ANALYSIS_MAX_TOKENS,
+      reasoning_effort: "low",
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "intent_analysis",
+          schema: intentAnalysisJsonSchema,
+          strict: true
+        }
+      }
+    });
+
+    const content = completion.choices[0]?.message.content;
+    if (!content) throw new Error("Gemini returned an empty intent response.");
+
+    return parseIntentResponse(content, "Gemini");
+  }
+}
+
 function parseIntentResponse(
   responseText: string,
   providerName: string
@@ -132,12 +176,22 @@ export function createNvidiaIntentAnalyzer(): IntentAnalyzer {
   if (!apiKey) throw new Error("NVIDIA_API_KEY is not configured.");
 
   return new NvidiaIntentAnalyzer(
-    new OpenAI({ apiKey, baseURL: NVIDIA_BASE_URL, timeout: NVIDIA_REQUEST_TIMEOUT_MS })
+    new OpenAI({ apiKey, baseURL: NVIDIA_BASE_URL, timeout: NVIDIA_REQUEST_TIMEOUT_MS, maxRetries: NVIDIA_MAX_RETRIES })
+  );
+}
+
+export function createGeminiIntentAnalyzer(): IntentAnalyzer {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("GEMINI_API_KEY is not configured.");
+
+  return new GeminiIntentAnalyzer(
+    new OpenAI({ apiKey, baseURL: GEMINI_BASE_URL, timeout: GEMINI_REQUEST_TIMEOUT_MS })
   );
 }
 
 export function createIntentAnalyzer(): IntentAnalyzer {
-  return getLLMProvider() === "nvidia"
-    ? createNvidiaIntentAnalyzer()
-    : createOpenAIIntentAnalyzer();
+  const provider = getLLMProvider();
+  if (provider === "nvidia") return createNvidiaIntentAnalyzer();
+  if (provider === "gemini") return createGeminiIntentAnalyzer();
+  return createOpenAIIntentAnalyzer();
 }
