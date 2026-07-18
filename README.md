@@ -48,15 +48,23 @@ Fill in the provider key you intend to use. Never commit `.env` or a real API ke
 
 ```dotenv
 # .env
-LLM_PROVIDER=your_provider
+LLM_PROVIDER=nvidia
+NVIDIA_API_KEY=your_nvidia_key_here
 
-# Set the matching provider API key in .env. Keep it server-side and never commit it.
+# Alternative: Gemini
+# LLM_PROVIDER=gemini
+# GEMINI_API_KEY=your_gemini_key_here
+
+# Alternative: OpenAI
+# LLM_PROVIDER=openai
+# OPENAI_API_KEY=your_openai_key_here
 ```
 
 ### Providers
 
-- `LLM_PROVIDER` selects a swappable OpenAI-compatible provider for local development, keeping API costs near zero while building.
-- `LLM_PROVIDER=openai` is the production and hackathon-submission path. It uses GPT-5.6 through the OpenAI Responses API.
+- `LLM_PROVIDER=nvidia` requires `NVIDIA_API_KEY`.
+- `LLM_PROVIDER=gemini` requires `GEMINI_API_KEY`.
+- `LLM_PROVIDER=openai` requires `OPENAI_API_KEY`. It is the production and hackathon-submission path, using GPT-5.6 through the OpenAI Responses API.
 
 ## Run locally
 
