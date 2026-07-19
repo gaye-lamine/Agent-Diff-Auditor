@@ -113,6 +113,8 @@ During local development, a swappable OpenAI-compatible provider enables real wo
 
 The included [example workflow](.github/workflows/example-pr-check.yml) is a working demonstration of how Agent Diff Auditor can run in a real GitHub Actions review pipeline: it sends a pull request diff to the public risk endpoint and comments the resulting file-level risks on the pull request. It demonstrates the technical integration path, rather than presenting CI review as an abstract future idea.
 
+![Agent Diff Auditor risk report posted as a PR comment](https://github.com/user-attachments/assets/b9953f04-d07a-4878-8c99-3ce709b25225)
+
 ## Security and data boundaries
 
 - API keys are read only by server-side provider factories. Client components call local API routes and never import the OpenAI SDK or access provider environment variables.
