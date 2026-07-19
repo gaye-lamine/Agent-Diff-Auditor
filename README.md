@@ -82,6 +82,13 @@ npx tsc --noEmit
 npm run build
 ```
 
+## Sample data
+
+`fixtures/posts-authbypass-diff.txt` (paired with `fixtures/posts-authbypass-task.txt`)
+contains a real example diff and task description that reproduces a detected
+authorization bypass — useful for testing the full pipeline (risk, intent,
+consistency, and suggested tests) immediately without writing your own diff.
+
 ## API routes
 
 | Route | Purpose |
